@@ -1,0 +1,6 @@
+ec2_keypair: 
+ec2_image: 
+ec2_instance_type: 
+ec2_security_group: 
+ec2_user: 
+
