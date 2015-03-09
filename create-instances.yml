@@ -30,15 +30,17 @@
     with_items: ec2.instances
 
 - hosts: cloudexam-exam-created
-  user: ubuntu
+  user: "{{ ec2_user }}" 
   gather_facts: True
+  vars_files:
+    - vars/ec2.yml
   tasks:
   - name: Install git
     apt: 
        name=git
        state=present
     sudo: true 
-  - name: Creating folder where project will been
+  - name: Creating folder where project will be
     shell: mkdir ephemeral 
     args: 
       chdir: /
@@ -46,6 +48,30 @@
   - name: Clonning repository
     git: 
       repo=https://github.com/cloudson/cloudexam-exam.git
-      dest=/ephemeral
+      dest=/ephemeral/cloudexam-exam
     register: git
     sudo: true
+  - name: Owner of cloudexam folder should be www-data
+    shell: chown -R www-data:www-data * 
+    args:
+      chdir: /ephemeral
+    sudo: true
+  - name: Install apache2 
+    apt:
+      name=apache2
+      state=present
+    sudo: true
+  - name: Create virtualhost file 
+    shell: sed -i 's;yourdirectory;ephemeral\/cloudexam-exam;g' cloudexam-exam.conf
+    args:
+      chdir: /ephemeral/cloudexam-exam/docs
+    sudo: true
+  - shell: mv cloudexam-exam.conf /etc/apache2/sites-enabled/
+    args:
+      chdir: /ephemeral/cloudexam-exam/docs
+    sudo: true
+  - name: Run server 
+    shell: echo "127.0.0.1 " 
+  - shell: service apache2 restart
+    sudo: true
+
