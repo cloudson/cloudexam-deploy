@@ -35,6 +35,9 @@
   vars_files:
     - vars/ec2.yml
   tasks:
+  - apt: 
+       update_cache=yes
+    sudo: true
   - name: Install git
     apt: 
        name=git
@@ -66,12 +69,51 @@
     args:
       chdir: /ephemeral/cloudexam-exam/docs
     sudo: true
+  - shell: sed -i 's;yourdomain;cloudexam-exam.claudson.com.br;g' cloudexam-exam.conf
+    args:
+      chdir: /ephemeral/cloudexam-exam/docs
+    sudo: true
   - shell: mv cloudexam-exam.conf /etc/apache2/sites-enabled/
     args:
       chdir: /ephemeral/cloudexam-exam/docs
     sudo: true
+  - shell: chmod 0777 /etc/hosts
+    sudo: true
+  - shell: echo "127.0.0.1 cloudexam-exam.claudson.com.br" >> /etc/hosts
+    sudo: true
+  - shell: sed -i 's;None;All;g' /etc/apache2/apache2.conf
+    sudo: true
+  - shell: sed -i 's;denied;granted;g' /etc/apache2/apache2.conf
+    sudo: true 
+  - name: Install php
+    apt: 
+      name=php5
+      state=present
+    sudo: true
+  - apt:
+      name=php5-mysql
+      state=present
+    sudo: true
+  - debug: name=inventory_hostname
+  - name: Install composer dependencies 
+    shell: curl -s http://getcomposer.org/installer | php
+    args: 
+      chdir: /home/ubuntu
+  - shell: /home/ubuntu/composer.phar install 
+    args:
+      chdir: /ephemeral/cloudexam-exam
+    sudo: true
+  - debug: name=ec2
   - name: Run server 
     shell: echo "127.0.0.1 " 
   - shell: service apache2 restart
     sudo: true
-
+  - name: Adding host on DNS Route53
+    route53:
+      command=create
+      overwrite=yes
+      type=A
+      record="cloudexam-exam.claudson.com.br"
+      value={{ inventory_hostname }}
+# install php5, php5-apache
+# @TODO add subdominio em /etc/hosts , adicionar entrada DNS no route 53 (forçando update) , configurar projeto com configs de banco corretamente 
