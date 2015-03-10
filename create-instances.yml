@@ -28,6 +28,15 @@
       hostname={{ item.public_ip }} 
       groupname=cloudexam-exam-created 
     with_items: ec2.instances
+  - name: Adding host on DNS Route53
+    route53:
+      command=create
+      overwrite=yes
+      type=A
+      zone="claudson.com.br"
+      record="cloudexam-exam.claudson.com.br"
+      value={{ item.public_ip }}
+    with_items: ec2.instances
 
 - hosts: cloudexam-exam-created
   user: "{{ ec2_user }}" 
@@ -94,7 +103,6 @@
       name=php5-mysql
       state=present
     sudo: true
-  - debug: name=inventory_hostname
   - name: Install composer dependencies 
     shell: curl -s http://getcomposer.org/installer | php
     args: 
@@ -103,17 +111,8 @@
     args:
       chdir: /ephemeral/cloudexam-exam
     sudo: true
-  - debug: name=ec2
   - name: Run server 
     shell: echo "127.0.0.1 " 
   - shell: service apache2 restart
-    sudo: true
-  - name: Adding host on DNS Route53
-    route53:
-      command=create
-      overwrite=yes
-      type=A
-      record="cloudexam-exam.claudson.com.br"
-      value={{ inventory_hostname }}
-# install php5, php5-apache
-# @TODO add subdominio em /etc/hosts , adicionar entrada DNS no route 53 (forçando update) , configurar projeto com configs de banco corretamente 
+    sudo: true  
+# @todo just add host on dns after everything is ok
