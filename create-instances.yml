@@ -16,7 +16,9 @@
       region=sa-east-1
     register: ec2 
   - name: Waiting for ssh service 
-    local_action: wait_for
+    shell: ssh-keyscan -t rsa,dsa {{ item.public_ip }} >> ~/.ssh/know_hosts
+    with_items: ec2.instances
+  - local_action: wait_for
       delay=10
       port=22
       state=started
@@ -28,22 +30,16 @@
       hostname={{ item.public_ip }} 
       groupname=cloudexam-exam-created 
     with_items: ec2.instances
-  - name: Adding host on DNS Route53
-    route53:
-      command=create
-      overwrite=yes
-      type=A
-      zone="claudson.com.br"
-      record="cloudexam-exam.claudson.com.br"
-      value={{ item.public_ip }}
-    with_items: ec2.instances
 
 - hosts: cloudexam-exam-created
   user: "{{ ec2_user }}" 
   gather_facts: True
   vars_files:
     - vars/ec2.yml
+    - vars/database.yml
   tasks:
+  # - debug: var=hostvars
+  # - debug: var=inventory_hostname
   - apt: 
        update_cache=yes
     sudo: true
@@ -94,6 +90,26 @@
     sudo: true
   - shell: sed -i 's;denied;granted;g' /etc/apache2/apache2.conf
     sudo: true 
+  - shell: cp settings.php.template settings.php
+    args: 
+      chdir: /ephemeral/cloudexam-exam/config
+    sudo: true
+  - shell: sed -i 's;db_name;{{ db_name }};g' settings.php 
+    args: 
+      chdir: /ephemeral/cloudexam-exam/config
+    sudo: true
+  - shell: sed -i 's;db_user;{{ db_user }};g' settings.php 
+    args: 
+      chdir: /ephemeral/cloudexam-exam/config
+    sudo: true
+  - shell: sed -i 's;db_host;{{ db_user }};g' settings.php 
+    args: 
+      chdir: /ephemeral/cloudexam-exam/config
+    sudo: true
+  - shell: sed -i 's;db_password;{{ db_password }};g' settings.php 
+    args: 
+      chdir: /ephemeral/cloudexam-exam/config
+    sudo: true
   - name: Install php
     apt: 
       name=php5
@@ -112,7 +128,24 @@
       chdir: /ephemeral/cloudexam-exam
     sudo: true
   - name: Run server 
-    shell: echo "127.0.0.1 " 
+    shell: echo "{{ inventory_hostname }} cloudexam-exam.claudson.com.br" >> /etc/hosts 
   - shell: service apache2 restart
-    sudo: true  
-# @todo just add host on dns after everything is ok
+    sudo: true
+  - name: install boto
+    apt: 
+      name=python-pip
+      state=present
+    sudo: true
+  - shell: pip install boto
+    sudo: true
+  - name: Add DNS entry on Route53
+    route53:
+      aws_access_key={{ aws_access_key_id }}
+      aws_secret_key={{ aws_secret_access_key }}
+      command=create
+      overwrite=yes
+      type=A
+      zone="claudson.com.br"
+      record="cloudexam-exam.claudson.com.br"
+      value={{ inventory_hostname }}
+# @todo just add host on dns after everything is ok, fix /etc/hosts
